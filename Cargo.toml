@@ -15,6 +15,5 @@ scraper = "0.13"
 async-ftp = "0.3"
 ssh2 = "0.10"
 futures = "0.3"
-tokio = { version = "1", features = ["full"] }
 git2 = "0.16"
-anyhow = "1.0
+anyhow = "1.0"
