@@ -4,12 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tensorflow = "0.21"
 reqwest = { version = "0.11", features = ["json", "gzip", "brotli", "deflate", "stream", "blocking", "rustls-tls"] }
 tokio = { version = "1", features = ["full"] }
-linfa = "0.6.1"
-linfa-trees = "0.6.1"
-ndarray = "0.15"
 serde = { version = "1.0", features = ["derive"] }
 scraper = "0.13"
 async-ftp = "0.3"
