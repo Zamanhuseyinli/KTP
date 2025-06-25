@@ -1,10 +1,12 @@
-use std::path::{Path, PathBuf};
-use std::process::Stdio;
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
+use tokio::sync::Mutex;
+use tokio::fs::{self, File};
+use std::path::PathBuf;
 use tokio::process::Command as TokioCommand;
+use tokio::io::{AsyncWriteExt, BufReader, AsyncReadExt};
 use futures_util::StreamExt;
 use std::error::Error;
+use std::sync::Arc;
+use async_ftp::FtpError;
 
 pub enum TransferProtocol {
     SSH,
@@ -18,10 +20,9 @@ pub struct TransferOptions {
     pub source_url: String,
     pub destination_path: PathBuf,
     pub auto_compile: bool,
-    pub username: Option<String>,  // For FTP and SSH/SCP authentication
-    pub password: Option<String>,  // For FTP authentication
+    pub username: Option<String>,
+    pub password: Option<String>,
 }
-
 
 pub struct KtpController;
 
@@ -46,7 +47,7 @@ impl KtpController {
         }
 
         if self.ktp_mk_exists(&opts.destination_path).await? {
-            println!("KTP.mk found, starting automatic installation...");
+            println!("KTP.mk detected. Starting automatic installation...");
             self.run_ktp_mk(&opts.destination_path).await?;
         } else if opts.auto_compile {
             self.clean_kernel(&opts.destination_path).await?;
@@ -61,19 +62,19 @@ impl KtpController {
         match protocol {
             TransferProtocol::HTTP => {
                 if !url.starts_with("https://") {
-                    println!("WARNING: Non-HTTPS URL is being used. This may cause security risks.");
+                    println!("WARNING: Using a non-HTTPS URL may compromise security.");
                 }
             }
             TransferProtocol::SSH | TransferProtocol::Cloud => {
                 if !url.contains('@') || !url.contains(':') {
-                    return Err("SSH/Cloud URL format invalid, expected user@host:/path".into());
+                    return Err("Invalid SSH/Cloud URL format; expected user@host:/path".into());
                 }
             }
             TransferProtocol::FTP => {
                 if !url.starts_with("ftp://") {
-                    println!("WARNING: FTP URL should start with ftp://");
+                    println!("WARNING: FTP URL should start with 'ftp://'");
                 }
-                println!("WARNING: FTP protocol is insecure. User assumes responsibility.");
+                println!("WARNING: FTP protocol is insecure; proceed with caution.");
             }
         }
         Ok(())
@@ -81,16 +82,16 @@ impl KtpController {
 
     async fn ktp_mk_exists(&self, kernel_path: &PathBuf) -> Result<bool, Box<dyn Error>> {
         let ktp_mk_path = kernel_path.join("KTP.mk");
-        Ok(ktp_mk_path.exists())
+        Ok(tokio::fs::metadata(&ktp_mk_path).await.is_ok())
     }
 
-    async fn run_ktp_mk(&self, kernel_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+    pub async fn run_ktp_mk(&self, kernel_path: &PathBuf) -> Result<(), Box<dyn Error>> {
         let ktp_mk_path = kernel_path.join("KTP.mk");
-        println!("Running KTP.mk file: {:?}", ktp_mk_path);
+        println!("Executing KTP.mk at: {:?}", ktp_mk_path);
 
         let status = TokioCommand::new("make")
             .arg("-f")
-            .arg(ktp_mk_path)
+            .arg(&ktp_mk_path)
             .current_dir(kernel_path)
             .status()
             .await?;
@@ -99,22 +100,18 @@ impl KtpController {
             return Err("Installation via KTP.mk failed".into());
         }
 
-        println!("KTP.mk installation completed successfully.");
+        println!("KTP.mk installation finished successfully.");
         Ok(())
     }
 
     async fn transfer_scp(&self, source_url: &str, dest: &PathBuf, username: Option<String>) -> Result<(), Box<dyn Error>> {
-        println!("Starting SCP transfer: {} -> {:?}", source_url, dest);
+        println!("Starting SCP transfer from '{}' to '{:?}'", source_url, dest);
 
-        // If username given, replace user in source_url with username (optional)
-        // Otherwise assume source_url has user@host format.
         let final_url = if let Some(user) = username {
-            // Attempt to replace username part in source_url (simple heuristic)
             if let Some(at_pos) = source_url.find('@') {
-                let after_at = &source_url[at_pos+1..];
+                let after_at = &source_url[at_pos + 1..];
                 format!("{}@{}", user, after_at)
             } else {
-                // no user in source_url, prepend username@
                 format!("{}@{}", user, source_url)
             }
         } else {
@@ -125,8 +122,8 @@ impl KtpController {
             .arg("-r")
             .arg(final_url)
             .arg(dest)
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
             .status()
             .await?;
 
@@ -134,12 +131,12 @@ impl KtpController {
             return Err("SCP transfer failed".into());
         }
 
-        println!("SCP transfer completed");
+        println!("SCP transfer completed successfully.");
         Ok(())
     }
 
     async fn transfer_http(&self, url: &str, dest: &PathBuf) -> Result<(), Box<dyn Error>> {
-        println!("Starting HTTP transfer: {} -> {:?}", url, dest);
+        println!("Starting HTTP download from '{}' to '{:?}'", url, dest);
 
         let filename = url.split('/').last().ok_or("Failed to extract filename from URL")?;
         let file_path = dest.join(filename);
@@ -152,10 +149,10 @@ impl KtpController {
         let resp = client.get(url).send().await?;
 
         if !resp.status().is_success() {
-            return Err(format!("HTTP request failed: {}", resp.status()).into());
+            return Err(format!("HTTP request failed with status: {}", resp.status()).into());
         }
 
-        let mut file = fs::File::create(&file_path).await?;
+        let mut file = File::create(&file_path).await?;
         let mut stream = resp.bytes_stream();
 
         while let Some(chunk) = stream.next().await {
@@ -163,49 +160,75 @@ impl KtpController {
             file.write_all(&chunk).await?;
         }
 
-        println!("File downloaded: {:?}", file_path);
+        println!("File downloaded successfully to {:?}", file_path);
 
         Ok(())
     }
 
-    async fn transfer_ftp(&self, url: &str, dest: &PathBuf, username: Option<String>, password: Option<String>) -> Result<(), Box<dyn Error>> {
-        println!("Starting FTP transfer: {} -> {:?}", url, dest);
+    async fn transfer_ftp(
+        &self,
+        url: &str,
+        dest: &PathBuf,
+        username: Option<String>,
+        password: Option<String>,
+    ) -> Result<(), Box<dyn Error>> {
+        println!("Starting FTP transfer from '{}' to '{:?}'", url, dest);
 
         let parsed_url = url::Url::parse(url)?;
         let host = parsed_url.host_str().ok_or("FTP host not found")?;
         let port = parsed_url.port_or_known_default().unwrap_or(21);
-        let path = parsed_url.path();
-
-        let mut ftp_stream = ftp::FtpStream::connect((host, port)).await?;
+        let remote_path = parsed_url.path().trim_start_matches('/');
 
         let user = username.unwrap_or_else(|| "anonymous".to_string());
         let pass = password.unwrap_or_else(|| "anonymous".to_string());
 
+        let mut ftp_stream = async_ftp::FtpStream::connect((host, port)).await?;
         ftp_stream.login(&user, &pass).await?;
 
-        let remote_file = path.trim_start_matches('/');
-        let bytes = ftp_stream.retr(remote_file).await?;
-        ftp_stream.quit().await?;
+        let filename = std::path::Path::new(remote_path)
+            .file_name()
+            .ok_or("Failed to get file name from FTP path")?;
 
         if !dest.exists() {
             fs::create_dir_all(dest).await?;
         }
 
-        let filename = Path::new(remote_file)
-            .file_name()
-            .ok_or("Failed to get file name")?;
-
         let file_path = dest.join(filename);
-        let mut file = fs::File::create(&file_path).await?;
-        file.write_all(&bytes).await?;
+        let file = File::create(&file_path).await?;
+        let file = Arc::new(Mutex::new(file));
 
-        println!("FTP file downloaded: {:?}", file_path);
+        ftp_stream
+            .retr(remote_path, |reader: BufReader<async_ftp::DataStream>| {
+                let file = Arc::clone(&file);
+                async move {
+                    let mut reader = reader;
+                    let mut file = file.lock().await;
+                    let mut buf = [0u8; 8192];
+
+                    loop {
+                        let n = reader
+                            .read(&mut buf)
+                            .await
+                            .map_err(|e| FtpError::ConnectionError(e))?;
+                        if n == 0 {
+                            break;
+                        }
+                        file.write_all(&buf[..n])
+                            .await
+                            .map_err(|e| FtpError::ConnectionError(e))?;
+                    }
+                    Ok::<_, FtpError>(())
+                }
+            })
+            .await?;
+
+        println!("FTP file downloaded successfully to {:?}", file_path);
 
         Ok(())
     }
 
     async fn clean_kernel(&self, kernel_path: &PathBuf) -> Result<(), Box<dyn Error>> {
-        println!("Starting kernel cleaning: {:?}", kernel_path);
+        println!("Running 'make clean' in {:?}", kernel_path);
 
         let status = TokioCommand::new("make")
             .arg("clean")
@@ -214,16 +237,16 @@ impl KtpController {
             .await?;
 
         if !status.success() {
-            println!("make clean may have failed, continuing anyway.");
+            println!("Warning: 'make clean' failed, continuing...");
         } else {
-            println!("make clean completed.");
+            println!("'make clean' completed successfully.");
         }
 
         Ok(())
     }
 
-    async fn kconfig_interface(&self, kernel_path: &PathBuf) -> Result<(), Box<dyn Error>> {
-        println!("Starting Kconfig interface (make menuconfig) in {:?}", kernel_path);
+    pub async fn kconfig_interface(&self, kernel_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+        println!("Launching 'make menuconfig' in {:?}", kernel_path);
 
         let status = TokioCommand::new("make")
             .arg("menuconfig")
@@ -232,7 +255,7 @@ impl KtpController {
             .await?;
 
         if !status.success() {
-            println!("Warning: Kconfig menuconfig exited with error or was cancelled.");
+            println!("Warning: 'make menuconfig' was cancelled or failed.");
         } else {
             println!("Kconfig configuration completed.");
         }
@@ -240,8 +263,8 @@ impl KtpController {
         Ok(())
     }
 
-    async fn compile_kernel(&self, kernel_path: &PathBuf) -> Result<(), Box<dyn Error>> {
-        println!("Starting kernel compilation: {:?}", kernel_path);
+    pub async fn compile_kernel(&self, kernel_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+        println!("Starting kernel compilation in {:?}", kernel_path);
 
         let status = TokioCommand::new("make")
             .current_dir(kernel_path)
@@ -252,7 +275,7 @@ impl KtpController {
             return Err("Kernel compilation failed".into());
         }
 
-        println!("Kernel compilation completed successfully");
+        println!("Kernel compilation finished successfully.");
         Ok(())
     }
 }

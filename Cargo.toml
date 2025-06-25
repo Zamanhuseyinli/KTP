@@ -1,19 +1,25 @@
 [package]
-name = "ktp"
+name = "KTP"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tensorflow = "0.21"
 reqwest = { version = "0.11", features = ["json", "gzip", "brotli", "deflate", "stream", "blocking", "rustls-tls"] }
 tokio = { version = "1", features = ["full"] }
-linfa = "0.6.1"
-linfa-trees = "0.6.1"
-ndarray = "0.15"
 serde = { version = "1.0", features = ["derive"] }
 scraper = "0.13"
-async-ftp = "0.3"
-ssh2 = "0.10"
+async_ftp = "6.0.0"
 futures = "0.3"
-git2 = "0.16"
 anyhow = "1.0"
+rpassword = "7.4.0"
+clap = { version = "4.3.10", features = ["derive"] }
+ssh2 = "0.9.5"
+git2 = "0.20.2"
+futures-util = "0.3.31"
+ftp = "3.0.1"
+url = "2.5.4"
+
+
+[[bin]]
+name = "ktp"
+path = "transfer-protocol/main.rs"

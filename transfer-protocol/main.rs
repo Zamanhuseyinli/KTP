@@ -1,14 +1,13 @@
-0use std::path::PathBuf;
-use clap::{Arg, Command, Subcommand, Parser};
+use std::path::PathBuf;
+use clap::{Parser, Subcommand};
 use tokio;
 use rpassword::read_password;
 
-mod ktp_controller;
-mod gitfetcher; 
+pub mod ktp_protocol;
+pub mod gitfetcher;
 
 #[derive(Subcommand)]
 enum Protocol {
-    /// Transfer kernel via SCP/SSH
     Scp {
         #[arg(long, required = true)]
         source: String,
@@ -17,14 +16,12 @@ enum Protocol {
         #[arg(long)]
         username: Option<String>,
     },
-    /// Transfer kernel via HTTP/HTTPS
     Http {
         #[arg(long, required = true)]
         source: String,
         #[arg(long, required = true)]
         dest: PathBuf,
     },
-    /// Transfer kernel via FTP
     Ftp {
         #[arg(long, required = true)]
         source: String,
@@ -35,42 +32,33 @@ enum Protocol {
         #[arg(long)]
         password: Option<String>,
     },
-    /// Run KTP.mk installation script
     Mktp {
         #[arg(long, required = true)]
         dest: PathBuf,
     },
-    /// Run kernel config interface (make menuconfig)
     Kconfig {
         #[arg(long, required = true)]
         dest: PathBuf,
     },
-    /// Git fetcher tool
     Git {
         #[arg(long)]
         source: String,
-
         #[arg(long)]
         local_path: PathBuf,
-
         #[arg(long, default_value = "Automatic commit")]
         commit_message: String,
-
         #[arg(long, default_value = "GitFetcher")]
         author_name: String,
-
         #[arg(long, default_value = "gitfetcher@example.com")]
         author_email: String,
-
         #[arg(long, default_value = "origin")]
         remote_name: String,
-
         #[arg(long, default_value = "master")]
         branch: String,
-
         #[arg(long)]
         push: bool,
     },
+}
 
 #[derive(Parser)]
 #[command(name = "KTP Controller")]
@@ -80,8 +68,6 @@ enum Protocol {
 struct Cli {
     #[command(subcommand)]
     protocol: Protocol,
-
-    /// Automatically compile kernel after transfer/configuration
     #[arg(long, default_value_t = true)]
     auto_compile: bool,
 }
@@ -89,13 +75,13 @@ struct Cli {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
-    let ktp = ktp_controller::KtpController::new();
-    let gitfetcher = gitfetcher::GitFetcher::new();
+    let ktp = ktp_protocol::KtpController::new();
+    let gitfetcher_instance = gitfetcher::GitFetcher::new();
 
     match cli.protocol {
         Protocol::Scp { source, dest, username } => {
-            ktp.transfer_kernel(ktp_controller::TransferOptions {
-                protocol: ktp_controller::TransferProtocol::SSH,
+            ktp.transfer_kernel(ktp_protocol::TransferOptions {
+                protocol: ktp_protocol::TransferProtocol::SSH,
                 source_url: source,
                 destination_path: dest,
                 auto_compile: cli.auto_compile,
@@ -104,8 +90,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }).await?;
         }
         Protocol::Http { source, dest } => {
-            ktp.transfer_kernel(ktp_controller::TransferOptions {
-                protocol: ktp_controller::TransferProtocol::HTTP,
+            ktp.transfer_kernel(ktp_protocol::TransferOptions {
+                protocol: ktp_protocol::TransferProtocol::HTTP,
                 source_url: source,
                 destination_path: dest,
                 auto_compile: cli.auto_compile,
@@ -118,8 +104,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Enter FTP password (input hidden): ");
                 password = Some(read_password()?);
             }
-            ktp.transfer_kernel(ktp_controller::TransferOptions {
-                protocol: ktp_controller::TransferProtocol::FTP,
+            ktp.transfer_kernel(ktp_protocol::TransferOptions {
+                protocol: ktp_protocol::TransferProtocol::FTP,
                 source_url: source,
                 destination_path: dest,
                 auto_compile: cli.auto_compile,
@@ -146,19 +132,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             branch,
             push,
         } => {
-            gitfetcher::run_git_operations(
-                &source,
-                &local_path,
-                &commit_message,
-                &author_name,
-                &author_email,
-                &remote_name,
-                &branch,
-                push,
-            )
-            .await?;
+            // Eğer run_git_operations async değilse .await kaldır
+gitfetcher_instance
+    .run_git_operations(
+        &source,
+        &local_path,
+        &commit_message,
+        &author_name,
+        &author_email,
+        &remote_name,
+        &branch,
+        push,
+    )
+    .await?;
         }
-     }
+    }
 
     Ok(())
 }

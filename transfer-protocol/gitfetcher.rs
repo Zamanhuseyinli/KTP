@@ -1,16 +1,12 @@
 use reqwest::Client;
-use scraper::{Html, Selector};
-use std::error::Error;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 use async_ftp::FtpStream;
 use ssh2::Session;
 use std::net::TcpStream;
-use futures::stream::StreamExt;
 use std::time::Duration;
 use git2::{Repository, IndexAddOption, Cred, RemoteCallbacks, PushOptions, FetchOptions, AutotagOption};
-use anyhow::{Result, Context};
-use tokio::time::sleep;
+use anyhow::Result;
 
 #[derive(Debug, Clone)]
 pub enum EntryType {
@@ -127,43 +123,56 @@ impl GitFetcher {
         Ok(list)
     }
 
-    pub fn fetch_scp_listing(&self, scp_url: &str, username: &str, password: &str) -> Result<Vec<String>> {
-        let parts: Vec<&str> = scp_url.split(':').collect();
-        if parts.len() != 2 {
-            anyhow::bail!("Invalid SCP URL format");
-        }
-        let host_part = parts[0];
-        let path = parts[1];
 
-        let user_host: Vec<&str> = host_part.split('@').collect();
-        let (user, host) = if user_host.len() == 2 {
-            (user_host[0], user_host[1])
-        } else {
-            (username, host_part)
-        };
 
-        let tcp = TcpStream::connect(format!("{}:22", host))?;
-        let mut sess = Session::new()?;
-        sess.set_tcp_stream(tcp);
-        sess.handshake()?;
-        sess.userauth_password(user, password)?;
-        if !sess.authenticated() {
-            anyhow::bail!("SCP Authentication failed");
-        }
 
-        let sftp = sess.sftp()?;
-        let dir = sftp.opendir(Path::new(path))?;
 
-        let mut entries = Vec::new();
-        for entry in dir {
-            let file = entry?;
-            let filename = file.filename();
-            entries.push(filename);
-        }
-        Ok(entries)
+pub fn fetch_scp_listing(&self, scp_url: &str, username: &str, password: &str) -> Result<Vec<String>> {
+    let parts: Vec<&str> = scp_url.split(':').collect();
+    if parts.len() != 2 {
+        anyhow::bail!("Invalid SCP URL format");
     }
 
+    let host_part = parts[0];
+    let path = parts[1];
+    let user_host: Vec<&str> = host_part.split('@').collect();
+    let (user, host) = if user_host.len() == 2 {
+        (user_host[0], user_host[1])
+    } else {
+        (username, host_part)
+    };
 
+    let tcp = TcpStream::connect(format!("{}:22", host))?;
+    let mut sess = Session::new()?;
+    sess.set_tcp_stream(tcp);
+    sess.handshake()?;
+    sess.userauth_password(user, password)?;
+    if !sess.authenticated() {
+        anyhow::bail!("SCP Authentication failed");
+    }
+
+    let sftp = sess.sftp()?;
+    let mut handle = sftp.opendir(Path::new(path))?;
+
+    let mut filenames = Vec::new();
+    // 🔥 Tek tek readdir() çağrısı ile listeyi oku
+    loop {
+        match handle.readdir() {
+            Ok((pathbuf, _stat)) => {
+                if let Some(name) = pathbuf.file_name() {
+                    filenames.push(name.to_string_lossy().into_owned());
+                }
+            }
+            Err(ref e) if e.code() == ssh2::ErrorCode::Session(-37) => {
+                // -37 = LIBSSH2_ERROR_SOCKET_RECV → tüm dosyalar okundu
+                break;
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
+
+    Ok(filenames)
+}
     pub async fn fetch_local_git_entries(&self, path_str: &str) -> Result<Vec<String>> {
         let mut entries = Vec::new();
         let path = Path::new(path_str);
@@ -210,7 +219,7 @@ impl GitFetcher {
     }
 
     /// Commit oluştur
-    pub fn git_commit(repo: &Repository, message: &str, author_name: &str, author_email: &str) -> Result<()> {
+    pub fn git_commit(repo: &Repository, message: &str, _author_name: &str, _author_email: &str) -> Result<()> {
         let sig = repo.signature()?;
         let mut index = repo.index()?;
         let tree_id = index.write_tree()?;
@@ -237,5 +246,25 @@ impl GitFetcher {
         remote.push(&[&format!("refs/heads/{}", branch)], Some(&mut push_opts))?;
         Ok(())
     }
-}
 
+    pub async fn run_git_operations(
+        &self,
+        source: &str,
+        local_path: &PathBuf,
+        commit_msg: &str,
+        author: &str,
+        email: &str,
+        remote: &str,
+        branch: &str,
+        do_push: bool,
+    ) -> Result<()> {
+        let repo = Self::open_or_clone_repo(source, local_path)?;
+        Self::fetch_repo(&repo, remote)?;
+        Self::git_add_all(&repo)?;
+        Self::git_commit(&repo, commit_msg, author, email)?;
+        if do_push {
+            Self::git_push(&repo, remote, branch)?;
+        }
+        Ok(())
+    }
+}
