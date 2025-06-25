@@ -183,5 +183,5 @@ To contribute to either the **KTP** or **RepoWatcher/AIAnalyzer**, please follow
 
 ## License
 
-This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE) file for details.
+This project is licensed under the **GPLV2 License**. See the [LICENSE](./LICENSE) file for details.
 ```
