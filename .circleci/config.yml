@@ -12,11 +12,6 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Güncel paket listelerini al
-          command: |
-            sudo apt-get update
-            sudo apt-get upgrade -y
-      - run:
           name: OpenSSL ve Rust yükle
           command: |
             sudo apt-get install -y \
