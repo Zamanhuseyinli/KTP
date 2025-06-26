@@ -24,20 +24,25 @@ jobs:
       - name: Install Rust target
         run: rustup target add aarch64-unknown-linux-gnu
 
-      - name: Add Debian repository GPG keys via keyserver
+      - name: Import Debian Bookworm GPG keys from keyserver
         run: |
           sudo apt-get update
           sudo apt-get install -y gnupg2 curl
+
           KEYS=(
-            B8B80B5B623EAB6AD8775C45B7C5D7D6350947F8
-            05AB90340C0C5E797F44A8C8254CF3B5AEC0A8F0
+            0E98404D386FA1D9
+            6ED0E7B82643E131
+            F8D2585B8783D481
+            54404762BBB6E853
+            BDE6D2B9216EC7A8
           )
+          sudo mkdir -p /usr/share/keyrings
           for key in "${KEYS[@]}"; do
-            gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys "$key"
-            gpg --export "$key" | sudo tee /usr/share/keyrings/debian-bookworm-keyring.gpg > /dev/null
+            gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys "$key"
+            gpg --export "$key" | sudo tee "/usr/share/keyrings/debian-bookworm-keyring.gpg" > /dev/null
           done
 
-      - name: Add Debian repositories and install cross-compilation dependencies
+      - name: Add Debian repos & install cross-compile deps
         run: |
           echo "deb [signed-by=/usr/share/keyrings/debian-bookworm-keyring.gpg] http://deb.debian.org/debian bookworm main" | sudo tee /etc/apt/sources.list.d/debian.list
           echo "deb [signed-by=/usr/share/keyrings/debian-bookworm-keyring.gpg] http://security.debian.org/debian-security bookworm-security main" | sudo tee -a /etc/apt/sources.list.d/debian.list
@@ -50,7 +55,7 @@ jobs:
             libssh2-1-dev:arm64 \
             libgit2-dev:arm64
 
-      - name: Create .cargo/config.toml for cross linker
+      - name: Create .cargo/config.toml for linker
         run: |
           mkdir -p .cargo
           echo '[target.aarch64-unknown-linux-gnu]' > .cargo/config.toml
