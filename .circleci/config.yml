@@ -1,36 +1,56 @@
-# This config was automatically generated from your source code
-# Stacks detected: cicd:github-actions:.github/workflows,deps:rust:.
 version: 2.1
-jobs:
-  test-rust:
+
+executors:
+  rust-executor:
     docker:
-      - image: cimg/rust:1.70
+      - image: rust:stable
+    working_directory: ~/project
+
+jobs:
+  build-aarch64:
+    executor: rust-executor
     steps:
       - checkout
-      - restore_cache:
-          key: cargo-{{ checksum "Cargo.lock" }}
+      
+      # Rust hedef mimarisini ekle
       - run:
-          command: cargo test
-      - save_cache:
-          key: cargo-{{ checksum "Cargo.lock" }}
+          name: Install aarch64 target
+          command: rustup target add aarch64-unknown-linux-gnu
+
+      # Cross compiler kurulumu
+      - run:
+          name: Install cross compilation dependencies
+          command: |
+            apt-get update
+            apt-get install -y gcc-aarch64-linux-gnu libssl-dev
+
+      # .cargo/config.toml ayarı
+      - run:
+          name: Setup cargo config for cross compilation
+          command: |
+            mkdir -p ~/.cargo
+            echo '[target.aarch64-unknown-linux-gnu]' > ~/.cargo/config.toml
+            echo 'linker = "aarch64-linux-gnu-gcc"' >> ~/.cargo/config.toml
+            echo 'rustflags = ["-L", "/usr/lib/aarch64-linux-gnu"]' >> ~/.cargo/config.toml
+
+      # Debug derlemesi
+      - run:
+          name: Build Debug
+          command: cargo build --target aarch64-unknown-linux-gnu
+
+      # Release derlemesi
+      - run:
+          name: Build Release
+          command: cargo build --target aarch64-unknown-linux-gnu --release
+
+      # Artifaktları sakla (opsiyonel)
+      - persist_to_workspace:
+          root: ~/project
           paths:
-            - ~/.cargo
-  deploy:
-    # This is an example deploy job, not actually used by the workflow
-    docker:
-      - image: cimg/base:stable
-    steps:
-      # Replace this with steps to deploy to users
-      - run:
-          name: deploy
-          command: '#e.g. ./deploy.sh'
-      - run:
-          name: found github actions config
-          command: ':'
+            - target/aarch64-unknown-linux-gnu/debug
+            - target/aarch64-unknown-linux-gnu/release
+
 workflows:
-  build-and-test:
+  build_and_test:
     jobs:
-      - test-rust
-    # - deploy:
-    #     requires:
-    #       - test-rust
+      - build-aarch64
