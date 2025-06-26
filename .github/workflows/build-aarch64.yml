@@ -27,6 +27,10 @@ jobs:
       - name: Install cross-compilation dependencies
         run: |
           sudo dpkg --add-architecture arm64
+          # noble codename sorununu düzelt
+          sudo sed -i 's/noble/jammy/g' /etc/apt/sources.list
+          sudo sed -i 's/noble-security/jammy-security/g' /etc/apt/sources.list
+          sudo sed -i 's/noble-updates/jammy-updates/g' /etc/apt/sources.list
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu \
