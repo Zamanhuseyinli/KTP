@@ -1,4 +1,4 @@
-name: Build for aarch64 (Debug & Release)
+name: Build KTP for aarch64 (Debug & Release)
 
 on:
   push:
@@ -10,29 +10,55 @@ jobs:
   build-aarch64:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        build-type: [debug, release]
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rs/toolchain@v1
         with:
-          targets: aarch64-unknown-linux-gnu
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Add aarch64 architecture and update
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
 
       - name: Install cross-compilation dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev:arm64
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            libssl-dev:arm64 \
+            libssh2-1-dev:arm64 \
+            libgit2-dev:arm64
 
-      - name: Build ${{ matrix.build-type }}
-        run: cargo build --target aarch64-unknown-linux-gnu --${{ matrix.build-type }}
+      - name: Add Rust target for aarch64
+        run: rustup target add aarch64-unknown-linux-gnu
 
-      - name: Upload ${{ matrix.build-type }} artifact
+      - name: Configure cargo to use cross linker
+        run: |
+          mkdir -p .cargo
+          echo '[target.aarch64-unknown-linux-gnu]' > .cargo/config.toml
+          echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
+          echo 'rustflags = ["-L", "/usr/lib/aarch64-linux-gnu"]' >> .cargo/config.toml
+
+      - name: Build Debug
+        run: cargo build --target aarch64-unknown-linux-gnu
+
+      - name: Build Release
+        run: cargo build --target aarch64-unknown-linux-gnu --release
+
+      - name: Upload Debug artifact
         uses: actions/upload-artifact@v4
         with:
-          name: aarch64-${{ matrix.build-type }}
-          path: target/aarch64-unknown-linux-gnu/${{ matrix.build-type }}/
+          name: aarch64-debug
+          path: target/aarch64-unknown-linux-gnu/debug/
+
+      - name: Upload Release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aarch64-release
+          path: target/aarch64-unknown-linux-gnu/release/
