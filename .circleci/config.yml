@@ -1,56 +1,18 @@
 version: 2.1
 
-executors:
-  rust-executor:
-    docker:
-      - image: rust:stable
-    working_directory: ~/project
-
 jobs:
-  build-aarch64:
-    executor: rust-executor
+  build:
+    docker:
+      - image: rust:latest
     steps:
       - checkout
-      
-      # Rust hedef mimarisini ekle
       - run:
-          name: Install aarch64 target
-          command: rustup target add aarch64-unknown-linux-gnu
-
-      # Cross compiler kurulumu
-      - run:
-          name: Install cross compilation dependencies
+          name: Build for aarch64 target
           command: |
-            apt-get update
-            apt-get install -y gcc-aarch64-linux-gnu libssl-dev
-
-      # .cargo/config.toml ayarı
-      - run:
-          name: Setup cargo config for cross compilation
-          command: |
-            mkdir -p ~/.cargo
-            echo '[target.aarch64-unknown-linux-gnu]' > ~/.cargo/config.toml
-            echo 'linker = "aarch64-linux-gnu-gcc"' >> ~/.cargo/config.toml
-            echo 'rustflags = ["-L", "/usr/lib/aarch64-linux-gnu"]' >> ~/.cargo/config.toml
-
-      # Debug derlemesi
-      - run:
-          name: Build Debug
-          command: cargo build --target aarch64-unknown-linux-gnu
-
-      # Release derlemesi
-      - run:
-          name: Build Release
-          command: cargo build --target aarch64-unknown-linux-gnu --release
-
-      # Artifaktları sakla (opsiyonel)
-      - persist_to_workspace:
-          root: ~/project
-          paths:
-            - target/aarch64-unknown-linux-gnu/debug
-            - target/aarch64-unknown-linux-gnu/release
+            rustup target add aarch64-unknown-linux-gnu
+            cargo build --target aarch64-unknown-linux-gnu --release
 
 workflows:
   build_and_test:
     jobs:
-      - build-aarch64
+      - build
