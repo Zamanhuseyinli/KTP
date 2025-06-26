@@ -1,46 +1,55 @@
 version: 2.1
 
 executors:
-  ubuntu-executor:
+  arm64-rust:
     docker:
-      - image: cimg/base:2023.06
-    working_directory: ~/project
+      - image: arm64v8/ubuntu:22.04
+    working_directory: ~/repo
 
 jobs:
-  build-aarch64:
-    executor: ubuntu-executor
+  build-arm64:
+    executor: arm64-rust
     steps:
       - checkout
 
       - run:
-          name: Install cross-compilation dependencies
+          name: Temel paketleri güncelle ve kur
           command: |
-            sudo dpkg --add-architecture arm64
-            sudo apt-get update
-            sudo apt-get install -y gcc-aarch64-linux-gnu
+            apt-get update
+            DEBIAN_FRONTEND=noninteractive apt-get install -y \
+              curl build-essential pkg-config libssl-dev git ca-certificates
 
       - run:
-          name: Install Rust target
-          command: rustup target add aarch64-unknown-linux-gnu
-
-      - run:
-          name: Create .cargo/config.toml for cross linker
+          name: Rust kurulumu (rustup)
           command: |
-            mkdir -p ~/.cargo
-            echo '[target.aarch64-unknown-linux-gnu]' > ~/.cargo/config.toml
-            echo 'linker = "aarch64-linux-gnu-gcc"' >> ~/.cargo/config.toml
-            echo 'rustflags = ["-L", "/usr/lib/aarch64-linux-gnu"]' >> ~/.cargo/config.toml
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            source $HOME/.cargo/env
+            rustup default stable
+            rustup target add aarch64-unknown-linux-gnu
 
       - run:
-          name: Build Debug
-          command: cargo build --target aarch64-unknown-linux-gnu
+          name: Çevresel değişkenleri ayarla
+          command: |
+            echo 'export OPENSSL_DIR=/usr/lib/aarch64-linux-gnu' >> $BASH_ENV
+            echo 'export OPENSSL_LIB_DIR=/usr/lib/aarch64-linux-gnu' >> $BASH_ENV
+            echo 'export OPENSSL_INCLUDE_DIR=/usr/include/openssl' >> $BASH_ENV
+            echo 'export PKG_CONFIG_ALLOW_CROSS=1' >> $BASH_ENV
+            source $BASH_ENV
 
       - run:
-          name: Build Release
-          command: cargo build --target aarch64-unknown-linux-gnu --release
+          name: Debug derlemesi
+          command: |
+            source $HOME/.cargo/env
+            cargo build --target aarch64-unknown-linux-gnu
+
+      - run:
+          name: Release derlemesi
+          command: |
+            source $HOME/.cargo/env
+            cargo build --release --target aarch64-unknown-linux-gnu
 
       - persist_to_workspace:
-          root: ~/project
+          root: ~/repo
           paths:
             - target/aarch64-unknown-linux-gnu/debug/
             - target/aarch64-unknown-linux-gnu/release/
@@ -48,4 +57,4 @@ jobs:
 workflows:
   build:
     jobs:
-      - build-aarch64
+      - build-arm64
