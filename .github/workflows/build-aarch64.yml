@@ -26,8 +26,21 @@ jobs:
 
       - name: Install cross-compilation dependencies
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            libc6-dev:arm64 \
+            libssl-dev:arm64 \
+            libssh2-1-dev:arm64 \
+            libgit2-dev:arm64
+
+      - name: Create .cargo/config.toml for cross linker
+        run: |
+          mkdir -p .cargo
+          echo '[target.aarch64-unknown-linux-gnu]' > .cargo/config.toml
+          echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
+          echo 'rustflags = ["-L", "/usr/lib/aarch64-linux-gnu"]' >> .cargo/config.toml
 
       - name: Build Debug
         run: cargo build --target aarch64-unknown-linux-gnu
