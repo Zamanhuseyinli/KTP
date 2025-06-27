@@ -49,9 +49,7 @@ jobs:
       - run:
           name: GitHub Release oluştur ve dosyaları yükle
           command: |
-            # GitHub CLI oturum aç
-            echo "$GITHUB_TOKEN" | gh auth login --with-token
-
+            # GITHUB_TOKEN ortam değişkeni üzerinden otomatik kimlik doğrulama yapılır
             # Sürüm mevcut değilse oluştur, varsa üzerine yaz (clobber)
             if ! gh release view 0.1.0 >/dev/null 2>&1; then
               gh release create 0.1.0 target/debug/ktp-0.1.0-debug-arm64 target/release/ktp-0.1.0-arm64 \
