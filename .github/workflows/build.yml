@@ -13,7 +13,7 @@ jobs:
     runs-on: macos-14
 
     env:
-      GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
     steps:
       - name: Checkout repository
