@@ -22,12 +22,23 @@ jobs:
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             source $HOME/.cargo/env
       - run:
-          name: Rust projesini derle
+          name: Rust projesini debug modunda derle
           command: |
-            cargo build --release
+            source $HOME/.cargo/env
+            cargo build
+            cp target/debug/ktp target/debug/ktp-0.1.0-debug-arm64
       - store_artifacts:
-          path: target/release/your_binary_name
-          destination: your_binary_name
+          path: target/debug/ktp-0.1.0-debug-arm64
+          destination: ktp-debug
+      - run:
+          name: Rust projesini release modunda derle
+          command: |
+            source $HOME/.cargo/env
+            cargo build --release
+            cp target/release/ktp target/release/ktp-0.1.0-arm64
+      - store_artifacts:
+          path: target/release/ktp-0.1.0-arm64
+          destination: ktp-release
 
 workflows:
   version: 2
