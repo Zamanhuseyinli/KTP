@@ -12,11 +12,14 @@ jobs:
   build:
     runs-on: macos-14
 
+    env:
+      GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install Rosetta and tools
+      - name: Install Rosetta and dependencies
         run: |
           softwareupdate --install-rosetta --agree-to-license
           brew install openssl rust git gh
@@ -31,18 +34,16 @@ jobs:
           cargo build --release
           cp target/release/ktp target/release/ktp-0.1.0-macos-arm
 
-      - name: Authenticate GitHub CLI
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
-        run: |
-          gh auth login --with-token <<< "${GH_TOKEN}"
-
       - name: Create or update GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          gh release view v0.1.0 || gh release create v0.1.0 \
-            target/debug/ktp-0.1.0-debug-macos-arm \
-            target/release/ktp-0.1.0-macos-arm \
-            --title "v0.1.0 macOS ARM" \
-            --notes "ARM (M1/M2) build"
+          if ! gh release view $GITHUB_REF_NAME >/dev/null 2>&1; then
+            gh release create $GITHUB_REF_NAME \
+              target/debug/ktp-0.1.0-debug-macos-arm \
+              target/release/ktp-0.1.0-macos-arm \
+              --title "$GITHUB_REF_NAME macOS ARM" \
+              --notes "ARM (M1/M2) build"
+          else
+            gh release upload $GITHUB_REF_NAME \
+              target/debug/ktp-0.1.0-debug-macos-arm \
+              target/release/ktp-0.1.0-macos-arm --clobber
+          fi
