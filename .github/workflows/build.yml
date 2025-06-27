@@ -2,9 +2,11 @@ name: Build and Release
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -29,27 +31,18 @@ jobs:
           cargo build --release
           cp target/release/ktp target/release/ktp-0.1.0-macos-arm
 
-      - name: Create or update GitHub Release
-        id: release
-        uses: ncipollo/release-action@v1
-        with:
-          tag: v0.1.0
-          release_name: "v0.1.0 macOS ARM"
-          body: |
-            ### Yeni Özellikler
-            - ARM (M1/M2) için derleme desteği eklendi.
-            - Debug ve Release modları için ayrı ikili dosyalar sunuluyor.
-          draft: false
-          prerelease: false
+      - name: Authenticate GitHub CLI
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          gh auth login --with-token <<< "${GH_TOKEN}"
 
-      - name: Upload release assets
-        if: ${{ steps.release.outputs.upload_url }}
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            target/debug/ktp-0.1.0-debug-macos-arm
-            target/release/ktp-0.1.0-macos-arm
+      - name: Create or update GitHub Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          gh release view v0.1.0 || gh release create v0.1.0 \
+            target/debug/ktp-0.1.0-debug-macos-arm \
+            target/release/ktp-0.1.0-macos-arm \
+            --title "v0.1.0 macOS ARM" \
+            --notes "ARM (M1/M2) build"
