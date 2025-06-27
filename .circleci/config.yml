@@ -25,6 +25,9 @@ jobs:
           name: Rust projesini derle
           command: |
             cargo build --release
+      - store_artifacts:
+          path: target/release/your_binary_name
+          destination: your_binary_name
 
 workflows:
   version: 2
