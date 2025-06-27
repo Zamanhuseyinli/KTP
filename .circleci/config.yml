@@ -3,8 +3,8 @@ version: 2.1
 executors:
   macos-arm-executor:
     macos:
-      xcode: 16.4.0
-    resource_class: macos.m1.large
+      xcode: 14.2.0
+    resource_class: macos.m1.medium.gen1
 jobs:
   build:
     executor: macos-arm-executor
