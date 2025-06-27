@@ -75,6 +75,7 @@ This **Python** application integrates **RepoWatcher** and **AIAnalyzer** to mon
 python3 main.py --uri http://example.com/repo --stream-type livestream
 ```
 
+
 ### Workflow
 
 1. **Monitor Repository**: The **RepoWatcher** monitors a repository URL or local directory.
@@ -82,6 +83,25 @@ python3 main.py --uri http://example.com/repo --stream-type livestream
     - **Offline**: Analyzes the local directory.
     - **Livestream**: Analyzes data streamed from HTTP/HTTPS repositories.
 3. **User Commands**: Users can type `start` to begin AI analysis or `exit` to quit.
+
+4. **Using Models**:
+
+There are two modes: `single` and `multiple`.
+
+- **Single**: If you use `single`, you can monitor only one GIT URL. Tools like AI analyzers will be able to analyze only that one URL.
+  
+- **Multiple**: If you use `multiple`, you can monitor multiple URLs and allow tools like AI analyzers to analyze several GIT repositories at once.
+
+For example, using the command below:
+
+```
+Aipropengine-uri https://github.com/zamanhuseinli/ktp --stream-type offline --stream-mode multiple
+```
+
+This will save the data under the `gitroot_multi` directory. In this way, AI analyzer tools will be able to analyze all the repositories within the `gitroot_multi` directory.
+```
+
+Let me know if you need further adjustments!
 
 ---
 

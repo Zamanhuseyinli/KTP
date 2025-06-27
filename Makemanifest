@@ -1,0 +1,127 @@
+import os
+import time
+import subprocess
+import yaml
+import sys
+from rich.console import Console
+from rich.progress import Progress, BarColumn, TextColumn
+from rich.panel import Panel
+from rich.text import Text
+from rich.live import Live
+
+# Konsol çıktısı için rich kullanımı
+console = Console()
+
+# MANIFEST.yml dosyasını okuma
+def load_manifest(manifest_file='MANIFEST.yml'):
+    try:
+        with open(manifest_file, 'r') as file:
+            return yaml.safe_load(file)
+    except FileNotFoundError:
+        console.print(f"[bold red]Error: {manifest_file} not found.[/bold red]")
+        return None
+    except yaml.YAMLError as e:
+        console.print(f"[bold red]Error in YAML file format: {e}[/bold red]")
+        return None
+
+# Ekranı temizleme (cargo ve setup.py çıktılarının temizlenmesi)
+def clear_console():
+    # Windows'ta cmd veya PowerShell, Linux'ta bash için geçerli
+    if sys.platform == "win32":
+        os.system('cls')  # Windows
+    else:
+        os.system('clear')  # Linux/MacOS
+
+# sudo parolasını doğrulama
+def request_sudo_password():
+    console.print("[bold yellow]This script requires sudo permissions.[/bold yellow]")
+    
+    try:
+        # Sudo parolasını doğrulamak için 'sudo -v' komutunu çalıştırıyoruz
+        subprocess.check_call("sudo -v", shell=True)
+    except subprocess.CalledProcessError:
+        console.print("[bold red]Failed to authenticate with sudo. Exiting...[/bold red]")
+        return False
+    return True
+
+# sudo komutları için izin isteme
+def request_sudo_permission(command):
+    if "sudo" in command:
+        if not request_sudo_password():
+            return False
+    return True
+
+# run_commands fonksiyonu
+def run_commands(commands):
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        transient=True,
+    ) as progress:
+        task = progress.add_task("[cyan]Running installation commands...", total=len(commands))
+
+        for command in commands:
+            clear_console()  # Her komut öncesi ekranı temizle
+            time.sleep(1)  # Komutlar arasında simülasyon için bekle
+            progress.update(task, advance=1)
+            
+            # Komutun sudo gerektirip gerektirmediğini kontrol et
+            if not request_sudo_permission(command):
+                return False
+
+            console.print(f"[bold green]Running: [yellow]{command}[/yellow]", style="bold green")
+
+            try:
+                # Komutları doğrudan çalıştır (çıktıları ekrana yansıtmadan)
+                subprocess.check_call(command, shell=True)
+            except subprocess.CalledProcessError as e:
+                console.print(f"[bold red]Error executing command: {command}[/bold red]", style="bold red")
+                return False
+        return True
+
+# Kurulum sürecini başlatma
+def create_package():
+    console.print(Panel("Welcome to the Installation Setup", style="bold yellow"))
+    
+    manifest = load_manifest()
+    
+    if manifest is None:
+        console.print("[bold red]Failed to load the manifest. Exiting...[/bold red]")
+        return
+
+    # Bilgilerle gösterim
+    console.print(f"[bold magenta]Version TF Protocol: {manifest['version_TF_PROTOCOL_THEINFO']}")
+    console.print(f"[bold magenta]Version AIPROPENGINE: {manifest['version_AIPROPENGINE_THEINFO']}")
+    console.print(f"[bold cyan]Patched Date: {manifest['patched_fixed_date']}")
+    console.print(f"[bold cyan]Release Version: {manifest['release_version']}")
+    console.print(f"[bold green]Developer: {manifest['developer']}")
+    console.print(f"[bold green]Organization: {manifest['organization']}")
+    
+    contributing = "Yes" if manifest["contributing"] > 0 else "No"
+    console.print(f"[bold yellow]Contributing: {contributing}")
+
+    # Kullanıcıdan onay al
+    console.print("\n[bold blue]Do you want to continue the installation? (y/n): ", end="", style="bold blue")
+    user_input = input().strip().lower()
+
+    if user_input != 'y':
+        console.print("[bold red]Installation cancelled by user.[/bold red]")
+        return
+
+    # Kurulum komutlarını çalıştır
+    console.print("\n[bold green]Starting the installation process...[/bold green]\n")
+    build_commands = manifest.get("build_commands", [])
+    success = run_commands(build_commands)
+
+    if success:
+        console.print("\n[bold green]Installation completed successfully![/bold green]")
+    else:
+        console.print("\n[bold red]Installation failed. Please check the logs for errors.[/bold red]")
+
+if __name__ == "__main__":
+    # Betiği çalıştırmadan önce sudo parolasını iste
+    if not request_sudo_password():
+        sys.exit(1)
+
+    create_package()

@@ -1,4 +1,0 @@
-$mkbuild "C"
-& = policy_set=NOCPP_define {syscpp}++
-& = sourcefile= $rootdir
-

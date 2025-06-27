@@ -1,0 +1,11 @@
+version_TF_PROTOCOL_THEINFO: "0.1.0"
+version_AIPROPENGINE_THEINFO: "0.1.01"
+patched_fixed_date: "2025-05-29"
+release_version: "2025_GLOBAL_VERSION"
+developer: "Zaman Huseyinli"
+organization: "Azccriminal unlimited Org."
+contributing: 0
+build_commands:
+  - "cargo build --release"
+  - "python setup.py install --user"
+  - "sudo mv target/release/ktp /usr/bin/ktp"

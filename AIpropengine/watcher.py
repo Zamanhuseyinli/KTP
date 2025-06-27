@@ -2,13 +2,11 @@ import os
 import asyncio
 from pathlib import Path
 from urllib.parse import urlparse
-import argparse
-
 import aioftp
 import paramiko
 from git import Repo, GitCommandError
 
-LOCAL_STORAGE = Path.home() / ".local" / "share" / "aipropengine-ktp"
+LOCAL_STORAGE = Path.home() / ".cache" / "aipropengine-ktp" 
 SUPPORTED_PROTOCOLS = ["http", "https", "ftp", "scp", "localdir"]
 
 def validate_uri(uri: str) -> bool:
@@ -19,9 +17,8 @@ def validate_uri(uri: str) -> bool:
         p = Path(parsed.path)
         return p.exists() and p.is_dir()
     elif parsed.scheme in ["http", "https"]:
-        return uri.endswith(".git")
+        return True
     elif parsed.scheme in ["ftp", "scp"]:
-        # Sadece temel kontrol (hostname ve path var mı)
         return bool(parsed.hostname) and bool(parsed.path) and parsed.path != "/"
     else:
         return False
@@ -33,7 +30,7 @@ async def check_ftp_repo_files(host, port, user, password, path) -> bool:
             filenames = [entry.name for entry in entries]
             return (".git" in filenames and ".gitlang" in filenames)
     except Exception as e:
-        print(f"FTP dosya kontrolü hatası: {e}")
+        print(f"FTP file check error: {e}")
         return False
 
 def check_scp_repo_files(hostname, port, username, password, path) -> bool:
@@ -47,7 +44,95 @@ def check_scp_repo_files(hostname, port, username, password, path) -> bool:
         ssh.close()
         return (".git" in file_list and ".gitlang" in file_list)
     except Exception as e:
-        print(f"SCP dosya kontrolü hatası: {e}")
+        print(f"SCP file check error: {e}")
+        return False
+
+class RepoWatcher:
+    def __init__(
+        self,
+        uri: str,
+        stream_type: str,
+        ftp_user: str = None,
+        ftp_pass: str = None,
+        scp_user: str = None,
+        scp_pass: str = None,
+        gitroot_mode: str = "single"  # "single" or "multiple"
+    ):
+        if stream_type not in ["livestream", "offlinestream"]:
+            raise ValueError("stream_type must be 'livestream' or 'offlinestream'")
+        if not validate_uri(uri):
+            raise ValueError(f"URI '{uri}' is invalid or not supported")
+
+        self.uri = uri
+import os
+import asyncio
+from pathlib import Path
+from urllib.parse import urlparse
+import argparse
+
+import aioftp
+import paramiko
+from git import Repo, GitCommandError
+
+LOCAL_STORAGE = Path.home() / ".cache" / "aipropengine-ktp"
+SUPPORTED_PROTOCOLS = ["http", "https", "ftp", "scp", "localdir"]
+
+def set_gitroot(mode="single"):
+    """
+    mode: "single" veya "multiple"
+    """
+    base_dir = LOCAL_STORAGE
+    if mode == "single":
+        gitroot_path = base_dir / "gitroot_single"
+        gitroot_path.mkdir(parents=True, exist_ok=True)
+        os.environ["GITROOT"] = str(gitroot_path)
+    elif mode == "multiple":
+        gitroot1 = base_dir / "gitroot_multi1"
+        gitroot2 = base_dir / "gitroot_multi2"
+        gitroot1.mkdir(parents=True, exist_ok=True)
+        gitroot2.mkdir(parents=True, exist_ok=True)
+        os.environ["GITROOT"] = f"{gitroot1},{gitroot2}"
+    else:
+        raise ValueError("Mode must be 'single' or 'multiple'")
+
+    print(f"[INFO] GITROOT environment variable set to: {os.environ['GITROOT']}")
+
+def validate_uri(uri: str) -> bool:
+    parsed = urlparse(uri)
+    if parsed.scheme not in SUPPORTED_PROTOCOLS:
+        return False
+    if parsed.scheme == "localdir":
+        p = Path(parsed.path)
+        return p.exists() and p.is_dir()
+    elif parsed.scheme in ["http", "https"]:
+        return True
+    elif parsed.scheme in ["ftp", "scp"]:
+        return bool(parsed.hostname) and bool(parsed.path) and parsed.path != "/"
+    else:
+        return False
+
+async def check_ftp_repo_files(host, port, user, password, path) -> bool:
+    try:
+        async with aioftp.Client.context(host, port=port, user=user, password=password) as client:
+            entries = await client.list(path)
+            filenames = [entry.name for entry in entries]
+            return (".git" in filenames and ".gitlang" in filenames)
+    except Exception as e:
+        print(f"FTP file check error: {e}")
+        return False
+
+def check_scp_repo_files(hostname, port, username, password, path) -> bool:
+    try:
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(hostname, port=port, username=username, password=password)
+        sftp = ssh.open_sftp()
+        file_list = sftp.listdir(path)
+        sftp.close()
+        ssh.close()
+        return (".git" in file_list and ".gitlang" in file_list)
+    except Exception as e:
+        print(f"SCP file checking error  : {e}")
         return False
 
 class RepoWatcher:
@@ -64,8 +149,18 @@ class RepoWatcher:
             raise ValueError(f"URI '{uri}' is invalid or not supported")
         self.uri = uri
         self.stream_type = stream_type
-        self.local_path = LOCAL_STORAGE / self._repo_name()
-        LOCAL_STORAGE.mkdir(parents=True, exist_ok=True)
+
+        gitroot_env = os.environ.get("GITROOT")
+        if not gitroot_env:
+            raise RuntimeError("GITROOT environment variable not set")
+
+        if "," in gitroot_env and stream_type == "offlinestream":
+            gitroots = gitroot_env.split(",")
+            self.local_path = Path(gitroots[0]) / self._repo_name()
+        else:
+            self.local_path = Path(gitroot_env) / self._repo_name()
+
+        Path(self.local_path.parent).mkdir(parents=True, exist_ok=True)
 
         self.ftp_user = ftp_user
         self.ftp_pass = ftp_pass
@@ -90,7 +185,6 @@ class RepoWatcher:
             if scheme in ["http", "https"]:
                 await self._clone_or_pull_git()
             elif scheme == "ftp":
-                # Önce dosya kontrolü yap
                 parsed = urlparse(self.uri)
                 host = parsed.hostname
                 port = parsed.port or 21
@@ -123,16 +217,17 @@ class RepoWatcher:
                 await self._watch_local_dir()
             else:
                 raise RuntimeError(f"Unsupported scheme for offlinestream: {scheme}")
+
     async def _watch_http_livestream(self):
-         print(f"Starting HTTP livestream watcher for {self.uri}")
-         import subprocess
-         while True:
-          result = subprocess.run(["git", "ls-remote", self.uri], capture_output=True, text=True)
-          if result.returncode == 0:
-               print(f"[Livestream] Remote refs for {self.uri}:\n{result.stdout}")
-          else:
-               print(f"[Livestream] Error checking remote: {result.stderr}")
-               await asyncio.sleep(30)
+        print(f"Starting HTTP livestream watcher for {self.uri}")
+        import subprocess
+        while True:
+            result = subprocess.run(["git", "ls-remote", self.uri], capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"[Livestream] Remote refs for {self.uri}:\n{result.stdout}")
+            else:
+                print(f"[Livestream] Error checking remote: {result.stderr}")
+            await asyncio.sleep(30)
 
     async def _clone_or_pull_git(self):
         print(f"Starting offline clone/pull for {self.uri}")
@@ -246,4 +341,3 @@ class RepoWatcher:
                 except FileNotFoundError:
                     pass
         return snapshot
-

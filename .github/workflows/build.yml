@@ -11,55 +11,39 @@ permissions:
 jobs:
   build:
     runs-on: macos-14
-    env:
-      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Install dependencies
+      - name: Install Rosetta and tools
         run: |
           softwareupdate --install-rosetta --agree-to-license
           brew install openssl rust git gh
 
-      - name: Build debug
+      - name: Authenticate gh CLI
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          echo "${GH_TOKEN}" | gh auth login --with-token
+
+      - name: Build Rust debug
         run: |
           cargo build
           cp target/debug/ktp target/debug/ktp-0.1.0-debug-macos-arm
 
-      - name: Build release
+      - name: Build Rust release
         run: |
           cargo build --release
           cp target/release/ktp target/release/ktp-0.1.0-macos-arm
 
-      - id: create_release
-        name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+      - name: Create or update GitHub Release
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          body: ARM (M1/M2) build
-          draft: false
-          prerelease: false
-
-      - name: Upload debug asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: target/debug/ktp-0.1.0-debug-macos-arm
-          asset_name: ktp-0.1.0-debug-macos-arm
-          asset_content_type: application/octet-stream
-
-      - name: Upload release asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: target/release/ktp-0.1.0-macos-arm
-          asset_name: ktp-0.1.0-macos-arm
-          asset_content_type: application/octet-stream
+          tag: v0.1.0
+          artifacts: |
+            target/debug/ktp-0.1.0-debug-macos-arm
+            target/release/ktp-0.1.0-macos-arm
+          token: ${{ secrets.GH_TOKEN }}
+          allowUpdates: true
+          makeLatest: true

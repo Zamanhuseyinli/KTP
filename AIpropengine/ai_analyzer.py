@@ -7,7 +7,8 @@ import mimetypes
 import re
 
 import tensorflow as tf
-from transformers import AutoTokenizer, TFAutoModelForSequenceClassification
+from transformers import AutoTokenizer
+from transformers.models.distilbert.modeling_tf_distilbert import TFDistilBertForSequenceClassification
 
 class FileClassifier:
     def classify_file(self, filepath: str) -> str:
@@ -27,20 +28,44 @@ class FileClassifier:
 class AIAnalyzer:
     def __init__(self):
         self.classifier = FileClassifier()
-        self.tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
-        self.model = TFAutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
+        self.tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
+        self.model = TFDistilBertForSequenceClassification.from_pretrained("distilbert-base-uncased")
         self.active_learning_memory = []
 
-    async def analyze_local_dir(self, local_dir: str):
-        print(f"[AIAnalyzer] Starting analysis of directory: {local_dir}")
+    async def analyze_local_dir(self, local_dir: str = None, gitroot_mode: str = "single"):
+        """
+        local_dir verilmezse GITROOT ortam değişkenine göre analiz yapar.
+        gitroot_mode 'single' veya 'multiple' olabilir.
+        """
+        if local_dir is None:
+            gitroot_env = os.environ.get("GITROOT")
+            if not gitroot_env:
+                print("[AIAnalyzer] GITROOT environment variable is not set.")
+                return
+            
+            if gitroot_mode == "single":
+                paths_to_analyze = [Path(gitroot_env)]
+            elif gitroot_mode == "multiple":
+                paths_to_analyze = [Path(p) for p in gitroot_env.split(",") if p]
+            else:
+                print("[AIAnalyzer] Unknown gitroot_mode, expected 'single' or 'multiple'.")
+                return
+        else:
+            paths_to_analyze = [Path(local_dir)]
 
-        all_files = []
-        for root, _, files in os.walk(local_dir):
-            for file in files:
-                all_files.append(os.path.join(root, file))
+        for path in paths_to_analyze:
+            if not path.exists() or not path.is_dir():
+                print(f"[AIAnalyzer] Path does not exist or is not a directory: {path}")
+                continue
+            print(f"[AIAnalyzer] Starting analysis of directory: {path}")
 
-        tasks = [self.analyze_file(f) for f in all_files]
-        await asyncio.gather(*tasks)
+            all_files = []
+            for root, _, files in os.walk(path):
+                for file in files:
+                    all_files.append(os.path.join(root, file))
+
+            tasks = [self.analyze_file(f) for f in all_files]
+            await asyncio.gather(*tasks)
 
         await self._retrain_if_needed()
 
