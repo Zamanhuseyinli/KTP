@@ -39,6 +39,10 @@ jobs:
       - store_artifacts:
           path: target/release/ktp-0.1.0-arm64
           destination: ktp-release
+      - run:
+          name: GitHub'da sürüm yayınla
+          command: |
+            curl -sL https://git.io/goreleaser | bash -s -- --rm-dist
 
 workflows:
   version: 2
