@@ -1,74 +1,53 @@
 version: 2.1
 
 executors:
-  arm64-executor:
-    machine:
-      image: ubuntu-2204:current
-    resource_class: arm.medium
-
+  macos-arm-executor:
+    macos:
+      xcode: 16.4.0
+    resource_class: macos.m1.large
 jobs:
   build:
-    executor: arm64-executor
+    executor: macos-arm-executor
     steps:
       - checkout
 
       - run:
-          name: OpenSSL, Rust ve GitHub CLI yükle
+          name: Gerekli araçları yükle (Rosetta dahil)
           command: |
-            sudo DEBIAN_FRONTEND=noninteractive apt-get update
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-              build-essential \
-              libssl-dev \
-              curl \
-              git \
-              unzip \
-              wget
-
-            # Rust kurulumu
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            echo 'source $HOME/.cargo/env' >> $BASH_ENV
-
-            # GitHub CLI (ARM64) kurulumu
-            curl -fsSL https://github.com/cli/cli/releases/download/v2.74.2/gh_2.74.2_linux_arm64.deb -o gh.deb
-            sudo dpkg -i gh.deb
+            softwareupdate --install-rosetta --agree-to-license
+            brew install openssl rust git gh
 
       - run:
           name: Rust projesini debug modunda derle
           command: |
-            source $HOME/.cargo/env
             cargo build
-            cp target/debug/ktp target/debug/ktp-0.1.0-debug-arm64
+            cp target/debug/ktp target/debug/ktp-0.1.0-debug-macos-arm
 
       - run:
           name: Rust projesini release modunda derle
           command: |
-            source $HOME/.cargo/env
             cargo build --release
-            cp target/release/ktp target/release/ktp-0.1.0-arm64
+            cp target/release/ktp target/release/ktp-0.1.0-macos-arm
 
       - run:
-          name: GitHub Release oluştur ve dosyaları yükle
+          name: GitHub Release oluştur ve yükle
           command: |
-            # GITHUB_TOKEN ortam değişkeni üzerinden otomatik kimlik doğrulama yapılır
-            # Sürüm mevcut değilse oluştur, varsa üzerine yaz (clobber)
             if ! gh release view 0.1.0 >/dev/null 2>&1; then
-              gh release create 0.1.0 target/debug/ktp-0.1.0-debug-arm64 target/release/ktp-0.1.0-arm64 \
-                --title "Sürüm 0.1.0" \
-                --notes "ktp 0.1.0 sürümü: debug ve release build dosyaları"
+              gh release create 0.1.0 target/debug/ktp-0.1.0-debug-macos-arm target/release/ktp-0.1.0-macos-arm \
+                --title "v0.1.0 macOS ARM" \
+                --notes "ARM (M1/M2) build"
             else
-              gh release upload 0.1.0 target/debug/ktp-0.1.0-debug-arm64 target/release/ktp-0.1.0-arm64 --clobber
+              gh release upload 0.1.0 target/debug/ktp-0.1.0-debug-macos-arm target/release/ktp-0.1.0-macos-arm --clobber
             fi
 
       - store_artifacts:
-          path: target/debug/ktp-0.1.0-debug-arm64
+          path: target/debug/ktp-0.1.0-debug-macos-arm
           destination: ktp-debug
-
       - store_artifacts:
-          path: target/release/ktp-0.1.0-arm64
+          path: target/release/ktp-0.1.0-macos-arm
           destination: ktp-release
 
 workflows:
-  version: 2
-  build:
+  build_workflow:
     jobs:
       - build
