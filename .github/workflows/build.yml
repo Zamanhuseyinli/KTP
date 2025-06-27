@@ -1,54 +1,55 @@
-version: 2.1
+name: Build and Release
 
-executors:
-  macos-arm-executor:
-    macos:
-      xcode: 14.2.0
-    resource_class: macos.m1.medium.gen1
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
 jobs:
   build:
-    executor: macos-arm-executor
+    runs-on: macos-14
+
     steps:
-      - checkout
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - run:
-          name: Gerekli araçları yükle (Rosetta dahil)
-          command: |
-            softwareupdate --install-rosetta --agree-to-license
-            brew install openssl rust git gh
+      - name: Install Rosetta and tools
+        run: |
+          softwareupdate --install-rosetta --agree-to-license
+          brew install openssl rust git gh
 
-      - run:
-          name: Rust projesini debug modunda derle
-          command: |
-            cargo build
-            cp target/debug/ktp target/debug/ktp-0.1.0-debug-macos-arm
+      - name: Build Rust debug
+        run: |
+          cargo build
+          cp target/debug/ktp target/debug/ktp-0.1.0-debug-macos-arm
 
-      - run:
-          name: Rust projesini release modunda derle
-          command: |
-            cargo build --release
-            cp target/release/ktp target/release/ktp-0.1.0-macos-arm
+      - name: Build Rust release
+        run: |
+          cargo build --release
+          cp target/release/ktp target/release/ktp-0.1.0-macos-arm
 
-      - run:
-          name: GitHub Release oluştur ve yükle
-          command: |
-            if ! gh release view 0.1.0 >/dev/null 2>&1; then
-              gh release create 0.1.0 target/debug/ktp-0.1.0-debug-macos-arm target/release/ktp-0.1.0-macos-arm \
-                --title "v0.1.0 macOS ARM" \
-                --notes "ARM (M1/M2) build"
-            else
-              gh release upload 0.1.0 target/debug/ktp-0.1.0-debug-macos-arm target/release/ktp-0.1.0-macos-arm --clobber
-            fi
+      - name: Create or update GitHub Release
+        id: release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v0.1.0
+          release_name: "v0.1.0 macOS ARM"
+          body: |
+            ### Yeni Özellikler
+            - ARM (M1/M2) için derleme desteği eklendi.
+            - Debug ve Release modları için ayrı ikili dosyalar sunuluyor.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - store_artifacts:
-          path: target/debug/ktp-0.1.0-debug-macos-arm
-          destination: ktp-debug
-      - store_artifacts:
-          path: target/release/ktp-0.1.0-macos-arm
-          destination: ktp-release
-
-workflows:
-  build_workflow:
-    jobs:
-      - build
+      - name: Upload release assets
+        if: ${{ steps.release.outputs.upload_url }}
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            target/debug/ktp-0.1.0-debug-macos-arm
+            target/release/ktp-0.1.0-macos-arm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
