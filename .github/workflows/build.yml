@@ -1,0 +1,54 @@
+version: 2.1
+
+executors:
+  macos-arm-executor:
+    macos:
+      xcode: 14.2.0
+    resource_class: macos.m1.medium.gen1
+
+jobs:
+  build:
+    executor: macos-arm-executor
+    steps:
+      - checkout
+
+      - run:
+          name: Gerekli araçları yükle (Rosetta dahil)
+          command: |
+            softwareupdate --install-rosetta --agree-to-license
+            brew install openssl rust git gh
+
+      - run:
+          name: Rust projesini debug modunda derle
+          command: |
+            cargo build
+            cp target/debug/ktp target/debug/ktp-0.1.0-debug-macos-arm
+
+      - run:
+          name: Rust projesini release modunda derle
+          command: |
+            cargo build --release
+            cp target/release/ktp target/release/ktp-0.1.0-macos-arm
+
+      - run:
+          name: GitHub Release oluştur ve yükle
+          command: |
+            if ! gh release view 0.1.0 >/dev/null 2>&1; then
+              gh release create 0.1.0 target/debug/ktp-0.1.0-debug-macos-arm target/release/ktp-0.1.0-macos-arm \
+                --title "v0.1.0 macOS ARM" \
+                --notes "ARM (M1/M2) build"
+            else
+              gh release upload 0.1.0 target/debug/ktp-0.1.0-debug-macos-arm target/release/ktp-0.1.0-macos-arm --clobber
+            fi
+
+      - store_artifacts:
+          path: target/debug/ktp-0.1.0-debug-macos-arm
+          destination: ktp-debug
+      - store_artifacts:
+          path: target/release/ktp-0.1.0-macos-arm
+          destination: ktp-release
+
+workflows:
+  build_workflow:
+    jobs:
+      - build
