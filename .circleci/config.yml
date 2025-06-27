@@ -11,38 +11,63 @@ jobs:
     executor: arm64-executor
     steps:
       - checkout
+
       - run:
-          name: OpenSSL ve Rust yükle
+          name: OpenSSL, Rust ve GitHub CLI yükle
           command: |
             sudo DEBIAN_FRONTEND=noninteractive apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
               build-essential \
               libssl-dev \
-              curl
+              curl \
+              git \
+              unzip \
+              wget
+
+            # Rust kurulumu
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            source $HOME/.cargo/env
+            echo 'source $HOME/.cargo/env' >> $BASH_ENV
+
+            # GitHub CLI (ARM64) kurulumu
+            curl -fsSL https://github.com/cli/cli/releases/download/v2.74.2/gh_2.74.2_linux_arm64.deb -o gh.deb
+            sudo dpkg -i gh.deb
+
       - run:
           name: Rust projesini debug modunda derle
           command: |
             source $HOME/.cargo/env
             cargo build
             cp target/debug/ktp target/debug/ktp-0.1.0-debug-arm64
-      - store_artifacts:
-          path: target/debug/ktp-0.1.0-debug-arm64
-          destination: ktp-debug
+
       - run:
           name: Rust projesini release modunda derle
           command: |
             source $HOME/.cargo/env
             cargo build --release
             cp target/release/ktp target/release/ktp-0.1.0-arm64
+
+      - run:
+          name: GitHub Release oluştur ve dosyaları yükle
+          command: |
+            # GitHub CLI oturum aç
+            echo "$GITHUB_TOKEN" | gh auth login --with-token
+
+            # Sürüm mevcut değilse oluştur, varsa üzerine yaz (clobber)
+            if ! gh release view 0.1.0 >/dev/null 2>&1; then
+              gh release create 0.1.0 target/debug/ktp-0.1.0-debug-arm64 target/release/ktp-0.1.0-arm64 \
+                --title "Sürüm 0.1.0" \
+                --notes "ktp 0.1.0 sürümü: debug ve release build dosyaları"
+            else
+              gh release upload 0.1.0 target/debug/ktp-0.1.0-debug-arm64 target/release/ktp-0.1.0-arm64 --clobber
+            fi
+
+      - store_artifacts:
+          path: target/debug/ktp-0.1.0-debug-arm64
+          destination: ktp-debug
+
       - store_artifacts:
           path: target/release/ktp-0.1.0-arm64
           destination: ktp-release
-      - run:
-          name: GitHub'da sürüm yayınla
-          command: |
-            curl -sL https://git.io/goreleaser | bash -s -- --rm-dist
 
 workflows:
   version: 2
