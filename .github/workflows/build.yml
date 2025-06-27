@@ -11,9 +11,8 @@ permissions:
 jobs:
   build:
     runs-on: macos-14
-
     env:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      GH_TOKEN: ${{ secrets.PAT_TOKEN }}  # GH_TOKEN olarak tanımlandı
 
     steps:
       - name: Checkout repository
@@ -34,16 +33,34 @@ jobs:
           cargo build --release
           cp target/release/ktp target/release/ktp-0.1.0-macos-arm
 
-      - name: Create or update GitHub Release
-        run: |
-          if ! gh release view $GITHUB_REF_NAME >/dev/null 2>&1; then
-            gh release create $GITHUB_REF_NAME \
-              target/debug/ktp-0.1.0-debug-macos-arm \
-              target/release/ktp-0.1.0-macos-arm \
-              --title "$GITHUB_REF_NAME macOS ARM" \
-              --notes "ARM (M1/M2) build"
-          else
-            gh release upload $GITHUB_REF_NAME \
-              target/debug/ktp-0.1.0-debug-macos-arm \
-              target/release/ktp-0.1.0-macos-arm --clobber
-          fi
+      - id: create_release
+        name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}  # Burada da GITHUB_TOKEN olarak geçiyor, GH_TOKEN otomatik kullanılacaktır
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: ARM (M1/M2) build
+          draft: false
+          prerelease: false
+
+      - name: Upload Debug Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: target/debug/ktp-0.1.0-debug-macos-arm
+          asset_name: ktp-0.1.0-debug-macos-arm
+          asset_content_type: application/octet-stream
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: target/release/ktp-0.1.0-macos-arm
+          asset_name: ktp-0.1.0-macos-arm
+          asset_content_type: application/octet-stream
