@@ -12,11 +12,10 @@ jobs:
   build:
     runs-on: macos-14
     env:
-      GH_TOKEN: ${{ secrets.PAT_TOKEN }}  # GH_TOKEN olarak tanımlandı
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Install Rosetta and dependencies
         run: |
@@ -37,7 +36,7 @@ jobs:
         name: Create GitHub Release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}  # Burada da GITHUB_TOKEN olarak geçiyor, GH_TOKEN otomatik kullanılacaktır
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}  # Burada GITHUB_TOKEN olarak kullanılıyor
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
@@ -48,7 +47,7 @@ jobs:
       - name: Upload Debug Asset
         uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: target/debug/ktp-0.1.0-debug-macos-arm
@@ -58,7 +57,7 @@ jobs:
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: target/release/ktp-0.1.0-macos-arm
