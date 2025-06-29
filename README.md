@@ -38,13 +38,13 @@
 
 ```bash
 # Transfer kernel files via SCP
-ktp transfer --protocol=scp --source=path/to/source --dest=/path/to/destination --username=your_username
+ktp scp--source=path/to/source --dest=/path/to/destination --username=your_username
 
 # Transfer kernel files via HTTP
-ktp transfer --protocol=http --source=http://example.com/kernel --dest=/path/to/destination
+ktp http --source=http://example.com/kernel --dest=/path/to/destination
 
 # Fetch from Git repo and optionally push changes
-ktp git --source=https://github.com/user/repo.git --local_path=/local/repo --push=true
+ktp git --source=https://github.com/user/repo.git --local-path=/local/repo --push=true
 ```
 
 ---
@@ -109,7 +109,7 @@ python3 main.py --uri http://example.com/repo --stream-type livestream
 Example for multiple mode:
 
 ```bash
-Aipropengine-uri https://github.com/zamanhuseinli/ktp --stream-type offline --stream-mode multiple
+aipropengine_ktp --uri https://github.com/Zamanhuseyinli/KTP --stream-type offlinestream --mode multiple
 ```
 
 This saves repositories under `gitroot_multi` for collective AI analysis.
@@ -137,7 +137,7 @@ Both the **Rust-based KTP** and **Python-based RepoWatcher/AIAnalyzer** can be c
 
 ```bash
 # Step 1: Transfer kernel files via KTP (SCP example)
-ktp transfer --protocol=scp --source=path/to/source --dest=/path/to/destination --username=your_username
+ktp scp --source=path/to/source --dest=/path/to/destination --username=your_username
 
 # Step 2: Monitor repo changes using RepoWatcher (livestream)
 python3 main.py --uri scp://remotehost/repo --stream-type livestream
@@ -161,24 +161,26 @@ python3 main.py --uri scp://remotehost/repo --stream-type livestream
 ### KTP (Rust)
 
 ```bash
-git clone https://github.com/yourusername/ktp.git
+git clone https://github.com/Zamanhuseyinli/ktp.git
 cd ktp
 cargo build --release
 
-# Run with example protocol
-cargo run -- --protocol=scp --source=path/to/source --dest=/path/to/destination
 ```
 
 ### RepoWatcher & AIAnalyzer (Python)
 
 ```bash
 pip install -r requirements.txt
-
-# Run the monitoring and analysis script
-python3 main.py --uri http://example.com/repo --stream-type livestream
+python setup.py install
+aipropengine_ktp --help
 ```
 
 ---
+# optional installation option
+```bash
+pip install -r requirements.txt
+python Makemanifest
+```
 
 # Contribution
 
@@ -193,5 +195,3 @@ python3 main.py --uri http://example.com/repo --stream-type livestream
 
 This project is licensed under the **GPLv2 License**. See the [LICENSE](./LICENSE) file for details.
 ```
-
----
