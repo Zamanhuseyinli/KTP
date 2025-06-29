@@ -38,7 +38,7 @@
 
 ```bash
 # Transfer kernel files via SCP
-ktp scp--source=path/to/source --dest=/path/to/destination --username=your_username
+ktp scp --source=path/to/source --dest=/path/to/destination --username=your_username
 
 # Transfer kernel files via HTTP
 ktp http --source=http://example.com/kernel --dest=/path/to/destination
