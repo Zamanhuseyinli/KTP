@@ -1,207 +1,197 @@
-## KTP - Kernel Transfer Protocol
+# KTP - Kernel Transfer Protocol
 
-The **KTP** (Kernel Transfer Protocol) is a **Rust** application that helps manage kernel file transfers and Git repository operations. It supports multiple transfer protocols and integrates kernel configuration tools.
+**KTP** (Kernel Transfer Protocol) is a **Rust** application designed to manage kernel file transfers and Git repository operations. It supports multiple transfer protocols and integrates kernel configuration and compilation tools.
 
-### Features
+---
 
-1. **Kernel File Transfer**:
-    - **SCP** (via SSH): Transfer kernel files securely using SCP.
-    - **HTTP/HTTPS**: Transfer kernel files via HTTP/HTTPS protocols.
-    - **FTP**: Transfer files using FTP, with optional username and password.
-  
-2. **Git Fetcher**:
-    - Sync Git repositories by cloning/fetching from remote repositories.
-    - Supports commit messages, author details, and pushing changes.
+## Features
 
-3. **Kernel Configuration**:
-    - Run **KTP.mk installation script** to set up the kernel environment.
-    - **Make Menuconfig**: Run kernel configuration interface (`make menuconfig`), with an option to auto-compile after configuration.
+### 1. Kernel File Transfer
+- **SCP (via SSH)**: Securely transfer kernel files using SCP.
+- **HTTP/HTTPS**: Download kernel files over HTTP or HTTPS.
+- **FTP**: Transfer files using FTP with optional username and password.
 
-4. **Real-time Kernel Compilation**:
-    - After transferring kernel files or configuring, you can trigger **automatic compilation**.
+### 2. Git Fetcher
+- Clone, fetch, and sync Git repositories.
+- Supports commit messages, author info, and pushing changes.
 
-### Protocols Supported
-- **SCP** (SSH) for secure file transfer.
-- **FTP** for file transfer with optional credentials.
-- **HTTP/HTTPS** for kernel source file download.
-- **Git Fetcher** for managing Git repositories.
+### 3. Kernel Configuration
+- Run the `KTP.mk` installation script to set up the kernel environment.
+- Launch `make menuconfig` kernel configuration interface.
+- Optionally auto-compile the kernel after configuration.
 
-### Example Command Usage
+### 4. Real-time Kernel Compilation
+- Automatically trigger kernel compilation after file transfer or configuration.
+
+---
+
+## Supported Protocols
+
+- **SCP** (SSH-based secure file transfer)
+- **FTP** (with optional credentials)
+- **HTTP/HTTPS**
+- **Git Fetcher** (Git operations support)
+
+---
+
+## Example Commands
 
 ```bash
-# Example SCP command for transferring kernel
+# Transfer kernel files via SCP
 ktp transfer --protocol=scp --source=path/to/source --dest=/path/to/destination --username=your_username
 
-# Example HTTP transfer command
+# Transfer kernel files via HTTP
 ktp transfer --protocol=http --source=http://example.com/kernel --dest=/path/to/destination
 
-# Example Git command to fetch from remote repo
+# Fetch from Git repo and optionally push changes
 ktp git --source=https://github.com/user/repo.git --local_path=/local/repo --push=true
 ```
 
-### Workflow
+---
 
-1. **CLI Commands**: Specify the transfer protocol (SCP, HTTP, FTP, Git).
-2. **Kernel or Repo Transfer**: Files are transferred based on the protocol, and Git operations can be executed.
-3. **Post-transfer Configuration**: After transferring, the kernel configuration interface is launched (`make menuconfig`).
-4. **Automatic Compilation**: If enabled, the kernel is compiled after configuration or transfer.
+## Workflow
+
+1. Specify the transfer protocol (SCP, HTTP, FTP, Git) via CLI.
+2. Transfer kernel files or perform Git operations.
+3. Launch kernel configuration interface (`make menuconfig`) post-transfer.
+4. Trigger automatic kernel compilation if enabled.
 
 ---
 
-## RepoWatcher & AIAnalyzer Integration (Python)
+# RepoWatcher & AIAnalyzer Integration (Python)
 
-This **Python** application integrates **RepoWatcher** and **AIAnalyzer** to monitor repositories and analyze them in real-time or offline. It supports FTP, SCP, HTTP, and local directory monitoring.
+A **Python** application combining **RepoWatcher** and **AIAnalyzer** for monitoring repositories and analyzing them in real-time or offline. Supports FTP, SCP, HTTP, and local directory monitoring.
 
-### Features
+---
 
-1. **RepoWatcher**:
-    - Monitors a repository or directory for changes.
-    - Supports **SCP**, **FTP**, **HTTP/HTTPS**, and **local directories**.
-    - Provides **livestream** or **offline** streaming for repository changes.
+## Features
 
-2. **AIAnalyzer**:
-    - Performs AI-based analysis on repository contents.
-    - Supports **livestream analysis** for HTTP/HTTPS repositories.
-    - Can also analyze **local directories** in **offline mode**.
+### RepoWatcher
+- Monitors repositories or directories for changes.
+- Supports **SCP**, **FTP**, **HTTP/HTTPS**, and **local directories**.
+- Offers **livestream** or **offline** modes for repository changes.
 
-3. **User Interaction**:
-    - Commands like `start` trigger AI analysis.
-    - `exit` stops the program.
+### AIAnalyzer
+- Performs AI-based analysis on repository contents.
+- Supports **livestream** analysis for HTTP/HTTPS repositories.
+- Can analyze **local directories** in **offline** mode.
 
-### Example Command Usage
+### User Interaction
+- Commands like `start` begin AI analysis.
+- `exit` terminates the program.
+
+---
+
+## Example Commands
 
 ```bash
-# Run Python script for RepoWatcher and AIAnalyzer
+# Run RepoWatcher and AIAnalyzer for livestream HTTP repo
 python3 main.py --uri http://example.com/repo --stream-type livestream
 ```
 
+---
 
-### Workflow
+## Workflow
 
-1. **Monitor Repository**: The **RepoWatcher** monitors a repository URL or local directory.
-2. **AI Analysis**: Based on the stream type:
-    - **Offline**: Analyzes the local directory.
-    - **Livestream**: Analyzes data streamed from HTTP/HTTPS repositories.
-3. **User Commands**: Users can type `start` to begin AI analysis or `exit` to quit.
+1. **Monitor repository or local directory** using RepoWatcher.
+2. **Analyze repository content** based on stream type:
+   - **Offline**: Local directory analysis.
+   - **Livestream**: Live HTTP/HTTPS stream analysis.
+3. **User commands** (`start`, `exit`) control analysis lifecycle.
 
-4. **Using Models**:
+---
 
-There are two modes: `single` and `multiple`.
+## Modes
 
-- **Single**: If you use `single`, you can monitor only one GIT URL. Tools like AI analyzers will be able to analyze only that one URL.
-  
-- **Multiple**: If you use `multiple`, you can monitor multiple URLs and allow tools like AI analyzers to analyze several GIT repositories at once.
+- **Single mode**: Monitor and analyze a single Git repository URL.
+- **Multiple mode**: Monitor and analyze multiple Git repositories simultaneously.
 
-For example, using the command below:
+Example for multiple mode:
 
-```
+```bash
 Aipropengine-uri https://github.com/zamanhuseinli/ktp --stream-type offline --stream-mode multiple
 ```
 
-This will save the data under the `gitroot_multi` directory. In this way, AI analyzer tools will be able to analyze all the repositories within the `gitroot_multi` directory.
+This saves repositories under `gitroot_multi` for collective AI analysis.
+
+---
+
+# Integration of KTP and RepoWatcher + AIAnalyzer
+
+Both the **Rust-based KTP** and **Python-based RepoWatcher/AIAnalyzer** can be combined for a smooth kernel development workflow.
+
+---
+
+## Workflow Integration
+
+1. **Kernel Transfer with KTP**
+   - Transfer kernel files via SCP, FTP, or HTTP using KTP.
+2. **Repo Monitoring with RepoWatcher**
+   - Run Python RepoWatcher to monitor the transferred repo for changes.
+3. **AI Analysis with AIAnalyzer**
+   - Once RepoWatcher detects changes, AIAnalyzer performs analysis on the updated kernel or project files.
+
+---
+
+## Example Interaction
+
+```bash
+# Step 1: Transfer kernel files via KTP (SCP example)
+ktp transfer --protocol=scp --source=path/to/source --dest=/path/to/destination --username=your_username
+
+# Step 2: Monitor repo changes using RepoWatcher (livestream)
+python3 main.py --uri scp://remotehost/repo --stream-type livestream
+
+# Step 3: AI analysis triggered automatically upon detected changes
 ```
 
-Let me know if you need further adjustments!
+---
+
+# Future Enhancements
+
+- **Unified CLI**: Combine Rust KTP and Python RepoWatcher CLI for a streamlined user experience.
+- **Cloud Integration**: Monitor cloud repositories (GitHub, GitLab) and trigger AI analysis.
+- **Extended Protocol Support**: Add SFTP and other protocols.
+- **Continuous Integration (CI)**: Automate AI analysis after each transfer or commit.
 
 ---
 
-## Integration of KTP and RepoWatcher + AIAnalyzer
+# Installation
 
-Both the **Rust-based KTP** and **Python-based RepoWatcher/AIAnalyzer** can interact in the following ways:
+### KTP (Rust)
 
-### **Workflow Integration**
+```bash
+git clone https://github.com/yourusername/ktp.git
+cd ktp
+cargo build --release
 
-1. **Kernel Transfer with KTP**:
-    - Transfer kernel files using **KTP** via SCP, FTP, or HTTP.
-    - Once the transfer is completed, you can trigger **RepoWatcher** to monitor the transferred repository (if it’s part of a kernel repo or project).
-
-2. **Repo Monitoring with RepoWatcher**:
-    - The **Python app** (`main.py`) can monitor the repository for any changes made by the **Rust KTP tool**.
-    - Once new changes are detected (e.g., after a kernel transfer), it triggers AI analysis via the **AIAnalyzer**.
-
-### Example Interaction:
-
-1. **Step 1**: Use **Rust KTP** to transfer kernel files via SCP or HTTP.
-
-    ```bash
-    ktp transfer --protocol=scp --source=path/to/source --dest=/path/to/destination --username=your_username
-    ```
-
-2. **Step 2**: After the transfer, run the **Python RepoWatcher** to monitor the repository.
-
-    ```bash
-    python3 main.py --uri scp://remotehost/repo --stream-type livestream
-    ```
-
-3. **Step 3**: Once the **RepoWatcher** detects new changes, it triggers **AIAnalyzer** to perform analysis on the newly transferred kernel files or project changes.
-
-    ```bash
-    # AI analysis triggered automatically
-    ```
-
----
-
-## Future Enhancements
-
-1. **Unified CLI**:
-   - Combine the **Rust KTP CLI** and **Python RepoWatcher CLI** into a single interface to streamline the workflow from kernel transfer to repository monitoring and AI analysis.
-
-2. **Cloud Integration**:
-   - Allow the **Python RepoWatcher** to monitor repositories stored in cloud storage (e.g., GitHub, GitLab) and trigger **AIAnalyzer** for cloud-based analysis.
-
-3. **Extended Protocols**:
-   - Add more protocols (e.g., **SFTP**) for enhanced file transfer capabilities.
-
-4. **Automatic Continuous Integration (CI)**:
-   - Automatically run **AI analysis** after each file transfer or Git commit as part of a CI pipeline.
-
----
-
-## Installation
-
-### **KTP (Rust)**
-
-1. Clone the repository:
-
-    ```bash
-    git clone https://github.com/yourusername/ktp.git
-    cd ktp
-    cargo build --release
-    ```
-
-2. Install dependencies and run:
-
-    ```bash
-    cargo run -- --protocol=scp --source=path/to/source --dest=/path/to/destination
-    ```
-
-### **RepoWatcher & AIAnalyzer (Python)**
-
-1. Install dependencies:
-
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-2. Run the Python application:
-
-    ```bash
-    python3 main.py --uri http://example.com/repo --stream-type livestream
-    ```
-
----
-
-## Contribution
-
-To contribute to either the **KTP** or **RepoWatcher/AIAnalyzer**, please follow these steps:
-
-1. Fork the repository.
-2. Create a new branch.
-3. Make your changes and submit a pull request.
-
----
-
-## License
-
-This project is licensed under the **GPLV2 License**. See the [LICENSE](./LICENSE) file for details.
+# Run with example protocol
+cargo run -- --protocol=scp --source=path/to/source --dest=/path/to/destination
 ```
+
+### RepoWatcher & AIAnalyzer (Python)
+
+```bash
+pip install -r requirements.txt
+
+# Run the monitoring and analysis script
+python3 main.py --uri http://example.com/repo --stream-type livestream
+```
+
+---
+
+# Contribution
+
+1. Fork the repository.  
+2. Create a new branch.  
+3. Make your changes.  
+4. Submit a pull request.
+
+---
+
+# License
+
+This project is licensed under the **GPLv2 License**. See the [LICENSE](./LICENSE) file for details.
+```
+
+---
