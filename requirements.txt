@@ -1,0 +1,18 @@
+# YAML parser
+pyyaml>=6.0
+
+# Rich terminal output
+rich>=13.0.0
+
+# Machine Learning & Transformers
+tensorflow>=2.12.0
+transformers>=4.30.0
+
+# Git repository access
+gitpython>=3.1.31
+
+# Async FTP client
+aioftp>=0.21.0
+
+# SSH/SCP support
+paramiko>=3.1.0
