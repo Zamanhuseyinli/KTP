@@ -88,7 +88,7 @@ A **Python** application combining **RepoWatcher** and **AIAnalyzer** for monito
 # Run RepoWatcher and AIAnalyzer for livestream HTTP repo
 python3 main.py --uri http://example.com/repo --stream-type livestream
 ```
-
+# example using [example using](https://raw.githubusercontent.com/Zamanhuseyinli/KTP/main/example.gif)
 ---
 
 ## Workflow
